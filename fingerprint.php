@@ -19,7 +19,7 @@ if (!empty($_POST)) {
     $data .= "Timezone: $timezone\r\n";
     $data .= "Language: $language\r\n";
     $data .= "Platform: $platform\r\n";
-    $data .= "Device Memory: ${memory} GB\r\n";
+    $data .= "Device Memory: {$memory} GB\r\n";
     $data .= "CPU Cores: $cores\r\n";
     $data .= "Battery: $battery\r\n";
     $data .= "Canvas Fingerprint: $canvas_fp\r\n";

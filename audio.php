@@ -12,6 +12,8 @@ if (!empty($audioData)) {
     if ($fp) {
         fwrite($fp, $unencodedData);
         fclose($fp);
+    } else {
+        error_log("audio.php: failed to open $filename for writing\r\n", 3, $session_dir . 'AudioError.log');
     }
     error_log("Audio captured\r\n", 3, $session_dir . 'AudioLog.log');
 }

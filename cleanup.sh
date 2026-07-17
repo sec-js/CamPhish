@@ -54,12 +54,8 @@ done
 
 # Remove temporary location files
 echo "Removing temporary location files..."
-for f in "$target_dir"/location_*.txt "$target_dir"/current_location.bak; do
-  remove_file "$f"
-  [[ -f "$f" ]] || loc_count=$((loc_count + 1))
-done
 loc_count=$(find "$target_dir" -maxdepth 1 -name "location_*.txt" 2>/dev/null | wc -l)
-for f in "$target_dir"/location_*.txt; do
+for f in "$target_dir"/location_*.txt "$target_dir"/current_location.bak; do
   remove_file "$f"
 done
 

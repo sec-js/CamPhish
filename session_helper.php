@@ -11,8 +11,10 @@ function getSessionDir() {
             // Support both absolute and relative paths
             $fullPath = (strpos($dir, '/') === 0) ? $dir : __DIR__ . '/' . $dir;
             if (!is_dir($fullPath)) {
-                @mkdir($fullPath, 0755, true);
+            if (!mkdir($fullPath, 0755, true)) {
+                error_log("session_helper.php: failed to create session directory: $fullPath\n");
             }
+        }
             return rtrim($fullPath, '/') . '/';
         }
     }
