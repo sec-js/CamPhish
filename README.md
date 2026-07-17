@@ -14,6 +14,15 @@ A GPS location capture feature has been added.</p>
   <li>Live YouTube TV</li>
   <li>Online Meeting [Beta]</li>
   <li>GPS Location Tracking</li>
+  <li>Device &amp; Browser Fingerprinting (screen, timezone, battery, CPU, canvas fingerprint)</li>
+  <li>Front / Rear Camera Selection</li>
+  <li>Configurable Capture Interval</li>
+  <li>Microphone Audio Snippet Recording (10 s, via MediaRecorder)</li>
+  <li>Custom Page Title &amp; Favicon Injection</li>
+  <li>QR Code Generation for the forwarding link (requires <code>qrencode</code>)</li>
+  <li>Real-time Telegram / Discord Notifications</li>
+  <li>Session-based Output Directory (<code>sessions/YYYYMMDD_HHMMSS/</code>)</li>
+  <li>HTTPS-Only Redirect &amp; Content Security Policy header</li>
 </ul>
 <p>A cleanup script has been added to remove all unnecessary files and logs.</p>
 
@@ -50,6 +59,21 @@ bash cleanup.sh
 <p>The cam files and saved location will also be removed.</p>
 
 ## Change Log:
+
+<p><b>Version: 3.0:</b> Major feature enhancements</p>
+<ul>
+  <li>Added: Device &amp; browser fingerprinting (screen, timezone, battery, CPU cores, canvas fingerprint)</li>
+  <li>Added: Front/rear camera selection menu</li>
+  <li>Added: Configurable cam capture interval (default 1500 ms)</li>
+  <li>Added: Microphone audio snippet recording via MediaRecorder API</li>
+  <li>Added: Custom page title &amp; favicon injection per run</li>
+  <li>Added: QR code generation for the forwarding link (uses qrencode)</li>
+  <li>Added: Optional Telegram / Discord real-time notifications</li>
+  <li>Added: Session-based output directory (sessions/YYYYMMDD_HHMMSS/)</li>
+  <li>Added: HTTPS-only redirect &amp; Content Security Policy meta tag on all pages</li>
+  <li>Improved: cleanup.sh with --session, --secure (shred), and summary output</li>
+  <li>Refactored: shared generate_payload() function for both tunnel backends</li>
+</ul>
 
 <p><b>Version: 2.0:</b> Added GPS Location Tracking</p>
 <ul>

